@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EcoMap — Алматы қоқыс сұрыптау картасы</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..800;1,9..40,300..800&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --c-forest: #1a3a1a;
+  --c-emerald: #22c55e;
+  --c-lime: #84cc16;
+  --c-mint: #d1fae5;
+  --c-sage: #f0fdf4;
+  --c-dark: #0a0f0a;
+  --c-card: rgba(255,255,255,0.72);
+  --c-card-solid: #fff;
+  --c-glass: rgba(255,255,255,0.55);
+  --c-border: rgba(34,197,94,0.15);
+  --c-text: #1a2e1a;
+  --c-muted: #5a6f5a;
+  --c-bg: #f7faf5;
+  --c-accent: #16a34a;
+  --c-danger: #ef4444;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-xs: 6px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.1);
+  --shadow-glow: 0 0 40px rgba(34,197,94,0.15);
+  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--c-bg);
+  color: var(--c-text);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ═══════ NAVBAR ═══════ */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 32px; height: 64px;
+  background: rgba(247,250,245,0.82);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--c-border);
+  transition: var(--transition);
+}
+nav.scrolled {
+  background: rgba(247,250,245,0.95);
+  box-shadow: 0 1px 12px rgba(0,0,0,0.06);
+}
+
+.logo {
+  font-family: var(--font-display);
+  font-size: 24px; font-weight: 900; letter-spacing: -0.5px;
+  display: flex; align-items: center; gap: 10px;
+  cursor: pointer;
+}
+.logo-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--c-emerald), var(--c-lime));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; box-shadow: 0 2px 8px rgba(34,197,94,0.3);
+}
+.logo span { color: var(--c-accent); }
+
+.nav-center { display: flex; gap: 4px; }
+.nl {
+  padding: 8px 18px; border-radius: 100px; border: none; background: none;
+  font-family: var(--font-body); font-size: 14px; font-weight: 500;
+  cursor: pointer; color: var(--c-muted); transition: var(--transition);
+  position: relative;
+}
+.nl:hover { color: var(--c-text); background: rgba(34,197,94,0.06); }
+.nl.on {
+  color: var(--c-forest); font-weight: 600;
+  background: var(--c-mint);
+}
+
+.nav-right { display: flex; align-items: center; gap: 12px; }
+.badge-count {
+  background: var(--c-mint); color: var(--c-accent);
+  font-size: 12px; font-weight: 700; padding: 4px 12px;
+  border-radius: 100px; letter-spacing: 0.3px;
+}
+.btn-add {
+  padding: 9px 20px; border-radius: 100px;
+  background: linear-gradient(135deg, var(--c-accent), #15803d);
+  color: #fff; border: none; font-family: var(--font-body);
+  font-size: 13px; cursor: pointer; font-weight: 600;
+  transition: var(--transition); display: flex; align-items: center; gap: 7px;
+  box-shadow: 0 2px 12px rgba(22,163,74,0.3);
+}
+.btn-add:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(22,163,74,0.4); }
+
+.page { display: none; padding-top: 64px; }
+.page.on { display: block; }
+
+/* ═══════ HERO ═══════ */
+.hero {
+  min-height: calc(100vh - 64px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 80px 32px 60px;
+  position: relative; overflow: hidden;
+  background: linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 40%, #f7faf5 100%);
+}
+.hero::before {
+  content: ''; position: absolute; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse 600px 400px at 20% 30%, rgba(34,197,94,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 500px at 80% 60%, rgba(132,204,22,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 300px 300px at 50% 80%, rgba(34,197,94,0.04) 0%, transparent 70%);
+}
+.hero > * { position: relative; z-index: 1; }
+
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2);
+  color: var(--c-accent); padding: 8px 20px; border-radius: 100px;
+  font-size: 13px; font-weight: 600; margin-bottom: 32px;
+  animation: fadeDown 0.8s ease both;
+}
+.hero-badge .pulse-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--c-emerald); position: relative;
+}
+.hero-badge .pulse-dot::after {
+  content: ''; position: absolute; inset: -3px; border-radius: 50%;
+  background: rgba(34,197,94,0.3); animation: pulse-ring 2s ease infinite;
+}
+
+.hero h1 {
+  font-family: var(--font-display); font-size: clamp(38px, 6vw, 64px);
+  font-weight: 900; line-height: 1.1; margin-bottom: 24px;
+  letter-spacing: -1.5px; max-width: 700px;
+  animation: fadeDown 0.8s ease 0.1s both;
+}
+.hero h1 em {
+  font-style: normal;
+  background: linear-gradient(135deg, var(--c-accent), var(--c-lime));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-sub {
+  font-size: 18px; color: var(--c-muted); max-width: 520px;
+  line-height: 1.7; margin-bottom: 40px;
+  animation: fadeDown 0.8s ease 0.2s both;
+}
+
+.hero-actions {
+  display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;
+  animation: fadeDown 0.8s ease 0.3s both;
+}
+.btn-primary {
+  padding: 16px 36px; border-radius: 100px;
+  background: linear-gradient(135deg, var(--c-accent), #15803d);
+  color: #fff; border: none; font-family: var(--font-body);
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: var(--transition); display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 4px 24px rgba(22,163,74,0.35);
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(22,163,74,0.4); }
+.btn-secondary {
+  padding: 16px 36px; border-radius: 100px;
+  background: var(--c-card); backdrop-filter: blur(10px);
+  color: var(--c-forest); border: 1.5px solid var(--c-border);
+  font-family: var(--font-body); font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: var(--transition);
+}
+.btn-secondary:hover { background: #fff; border-color: var(--c-accent); }
+
+/* ═══════ KPI BAR ═══════ */
+.kpi-strip {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 1px;
+  background: var(--c-border); border-top: 1px solid var(--c-border);
+  border-bottom: 1px solid var(--c-border);
+}
+.kpi-item {
+  background: rgba(255,255,255,0.8); backdrop-filter: blur(10px);
+  padding: 32px 20px; text-align: center;
+  transition: var(--transition);
+}
+.kpi-item:hover { background: #fff; }
+.kpi-val {
+  font-family: var(--font-display); font-size: 36px; font-weight: 900;
+  background: linear-gradient(135deg, var(--c-forest), var(--c-accent));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.kpi-label { font-size: 13px; color: var(--c-muted); margin-top: 6px; font-weight: 500; }
+
+/* ═══════ HOME BODY ═══════ */
+.home-body { max-width: 1060px; margin: 0 auto; padding: 80px 32px; }
+.section-eyebrow {
+  font-size: 12px; font-weight: 700; letter-spacing: 2px;
+  color: var(--c-accent); text-transform: uppercase; margin-bottom: 12px;
+}
+.section-title {
+  font-family: var(--font-display); font-size: 34px; font-weight: 900;
+  margin-bottom: 8px; letter-spacing: -0.5px;
+}
+.section-sub { font-size: 15px; color: var(--c-muted); margin-bottom: 40px; }
+
+.cards-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+.info-card {
+  background: var(--c-card); backdrop-filter: blur(12px);
+  border: 1px solid var(--c-border); border-radius: var(--radius);
+  padding: 28px; transition: var(--transition);
+  position: relative; overflow: hidden;
+}
+.info-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--c-accent), var(--c-lime));
+  opacity: 0; transition: var(--transition);
+}
+.info-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+.info-card:hover::before { opacity: 1; }
+.card-icon {
+  width: 52px; height: 52px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; margin-bottom: 18px;
+}
+.info-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
+.info-card p { font-size: 14px; color: var(--c-muted); line-height: 1.7; }
+
+/* Steps */
+.steps-container { margin-top: 64px; }
+.steps-row {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 0;
+  position: relative;
+}
+.steps-row::before {
+  content: ''; position: absolute; top: 30px;
+  left: calc(12.5% + 24px); right: calc(12.5% + 24px);
+  height: 2px; background: linear-gradient(90deg, var(--c-accent), var(--c-lime));
+  opacity: 0.3;
+}
+.step-item { text-align: center; position: relative; z-index: 1; padding: 0 12px; }
+.step-circle {
+  width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 16px;
+  background: linear-gradient(135deg, var(--c-accent), #15803d);
+  color: #fff; font-family: var(--font-display);
+  font-size: 22px; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 16px rgba(22,163,74,0.3);
+}
+.step-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+.step-desc { font-size: 13px; color: var(--c-muted); line-height: 1.5; }
+
+/* ═══════ MAP PAGE ═══════ */
+.map-layout {
+  display: grid; grid-template-columns: 360px 1fr;
+  height: calc(100vh - 64px);
+}
+.map-sidebar {
+  background: rgba(255,255,255,0.9); backdrop-filter: blur(16px);
+  border-right: 1px solid var(--c-border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.sb-header { padding: 18px 20px; border-bottom: 1px solid var(--c-border); }
+.sb-search-wrap {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--c-sage); border: 1.5px solid var(--c-border);
+  border-radius: 12px; padding: 10px 14px; transition: var(--transition);
+}
+.sb-search-wrap:focus-within { border-color: var(--c-accent); background: #fff; box-shadow: 0 0 0 3px rgba(34,197,94,0.1); }
+.sb-search-wrap svg { flex-shrink: 0; opacity: 0.5; }
+.sb-search-wrap input {
+  border: none; background: none; font-family: var(--font-body);
+  font-size: 14px; width: 100%; color: var(--c-text); outline: none;
+}
+.filter-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.chip {
+  padding: 6px 14px; border-radius: 100px; font-size: 12px;
+  font-weight: 600; cursor: pointer; border: 1.5px solid var(--c-border);
+  background: #fff; color: var(--c-muted); transition: var(--transition);
+  white-space: nowrap;
+}
+.chip:hover { border-color: var(--c-accent); color: var(--c-accent); }
+.chip.on {
+  background: linear-gradient(135deg, var(--c-accent), #15803d);
+  color: #fff; border-color: transparent;
+  box-shadow: 0 2px 8px rgba(22,163,74,0.25);
+}
+
+.sb-count {
+  padding: 10px 20px; font-size: 12px; color: var(--c-muted);
+  border-bottom: 1px solid var(--c-border); background: var(--c-sage);
+  font-weight: 500;
+}
+.pt-list { flex: 1; overflow-y: auto; }
+.pt-list::-webkit-scrollbar { width: 4px; }
+.pt-list::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 4px; }
+
+.pt-item {
+  padding: 16px 20px; border-bottom: 1px solid rgba(34,197,94,0.08);
+  cursor: pointer; transition: var(--transition);
+}
+.pt-item:hover { background: var(--c-sage); }
+.pt-item.active {
+  background: var(--c-mint); border-left: 3px solid var(--c-accent);
+}
+.pt-name { font-size: 14px; font-weight: 700; color: var(--c-text); }
+.pt-meta { font-size: 12px; color: var(--c-muted); margin-top: 4px; }
+.pt-hrs { font-size: 11px; color: var(--c-accent); font-weight: 600; margin-top: 3px; }
+.pt-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+.tag {
+  font-size: 10px; font-weight: 700; padding: 3px 9px;
+  border-radius: 100px; letter-spacing: 0.3px;
+}
+.t-paper { background: #dbeafe; color: #1e40af; }
+.t-plastic { background: #fef3c7; color: #92400e; }
+.t-glass { background: #ede9fe; color: #5b21b6; }
+.t-metal { background: #fee2e2; color: #991b1b; }
+.t-organic { background: #dcfce7; color: #166534; }
+.t-battery { background: #fce7f3; color: #9d174d; }
+.t-electro { background: #e0f2fe; color: #0369a1; }
+.pt-empty { padding: 40px 20px; text-align: center; font-size: 14px; color: var(--c-muted); display: none; }
+.pt-empty.show { display: block; }
+
+#map { width: 100%; height: 100%; }
+.leaflet-popup-content-wrapper {
+  border-radius: 16px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12) !important;
+  padding: 0 !important; overflow: hidden;
+}
+.leaflet-popup-content { margin: 0 !important; min-width: 240px; }
+.popup-inner { padding: 20px; }
+.popup-name { font-family: var(--font-body); font-size: 15px; font-weight: 700; margin-bottom: 5px; }
+.popup-addr { font-size: 12px; color: var(--c-muted); margin-bottom: 8px; }
+.popup-hrs { font-size: 12px; color: var(--c-accent); margin-bottom: 12px; font-weight: 600; }
+.popup-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 14px; }
+.popup-btn {
+  width: 100%; padding: 10px; border-radius: 10px; font-family: var(--font-body);
+  background: linear-gradient(135deg, var(--c-accent), #15803d);
+  color: #fff; border: none; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: var(--transition);
+}
+.popup-btn:hover { opacity: 0.9; }
+
+.map-ctrls {
+  position: absolute; top: 16px; right: 16px; z-index: 500;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.mc-btn {
+  width: 42px; height: 42px; background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(10px); border: 1px solid var(--c-border);
+  border-radius: 12px; cursor: pointer; font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow-md); transition: var(--transition);
+}
+.mc-btn:hover { background: #fff; transform: scale(1.05); }
+@keyframes pulse-btn { 0%,100% { opacity:1 } 50% { opacity:.4 } }
+.mc-btn.locating { animation: pulse-btn 1s infinite; }
+
+.map-legend {
+  position: absolute; bottom: 24px; left: 372px; z-index: 500;
+  background: rgba(255,255,255,0.9); backdrop-filter: blur(10px);
+  border: 1px solid var(--c-border); border-radius: var(--radius-sm);
+  padding: 14px 18px; font-size: 12px;
+}
+.leg-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; color: var(--c-muted); }
+.leg-row:last-child { margin: 0; }
+.leg-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.8); box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+
+/* ═══════ GUIDE ═══════ */
+.guide-page { max-width: 1060px; margin: 0 auto; padding: 60px 32px 80px; }
+
+.guide-hero {
+  background: var(--c-forest);
+  border-radius: 24px; padding: 48px 52px;
+  display: grid; grid-template-columns: 1.2fr 1fr; gap: 48px;
+  align-items: center; margin-bottom: 48px;
+  position: relative; overflow: hidden;
+}
+.guide-hero::before {
+  content: ''; position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 400px 400px at 100% 100%, rgba(34,197,94,0.15) 0%, transparent 70%),
+    radial-gradient(ellipse 300px 300px at 0% 0%, rgba(132,204,22,0.1) 0%, transparent 70%);
+}
+.guide-hero > * { position: relative; z-index: 1; }
+.gh-title {
+  font-family: var(--font-display); font-size: 30px;
+  font-weight: 900; color: #fff; margin-bottom: 16px; line-height: 1.2;
+}
+.gh-sub { font-size: 15px; color: rgba(255,255,255,0.65); line-height: 1.8; }
+.gh-steps { display: flex; flex-direction: column; gap: 10px; }
+.gh-step {
+  display: flex; align-items: center; gap: 14px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; padding: 14px 18px; transition: var(--transition);
+}
+.gh-step:hover { background: rgba(255,255,255,0.1); }
+.gh-num {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--c-emerald), var(--c-lime));
+  color: #fff; font-size: 14px; font-weight: 900;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.gh-text { font-size: 14px; color: rgba(255,255,255,0.8); }
+
+.waste-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; margin-bottom: 40px; }
+.wc {
+  background: var(--c-card); backdrop-filter: blur(12px);
+  border: 1px solid var(--c-border); border-radius: var(--radius);
+  padding: 24px; transition: var(--transition); position: relative; overflow: hidden;
+}
+.wc::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+  background: var(--c-accent); opacity: 0; transition: var(--transition);
+}
+.wc:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+.wc:hover::after { opacity: 1; }
+.wc-icon { font-size: 32px; margin-bottom: 14px; }
+.wc-name { font-size: 16px; font-weight: 800; margin-bottom: 12px; }
+.wc-yes { font-size: 13px; color: #166534; line-height: 2; }
+.wc-no {
+  font-size: 12px; color: var(--c-danger); margin-top: 12px;
+  padding-top: 12px; border-top: 1px solid var(--c-border); line-height: 1.8;
+}
+
+.tips-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 16px; }
+.tip {
+  background: var(--c-card); border-radius: var(--radius);
+  border: 1px solid var(--c-border); padding: 20px;
+  border-left: 4px solid var(--c-accent); transition: var(--transition);
+}
+.tip:hover { box-shadow: var(--shadow-md); }
+.tip-ttl { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.tip-txt { font-size: 13px; color: var(--c-muted); line-height: 1.7; }
+
+/* ═══════ STATS ═══════ */
+.stats-page { max-width: 1060px; margin: 0 auto; padding: 60px 32px 80px; }
+.stats-kpi { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; margin-bottom: 28px; }
+.sk {
+  background: var(--c-card); backdrop-filter: blur(12px);
+  border: 1px solid var(--c-border); border-radius: var(--radius);
+  padding: 28px; transition: var(--transition);
+}
+.sk:hover { box-shadow: var(--shadow-md); }
+.sk-lbl { font-size: 13px; color: var(--c-muted); margin-bottom: 10px; font-weight: 500; }
+.sk-val { font-family: var(--font-display); font-size: 40px; font-weight: 900; }
+.sk-note { font-size: 12px; color: var(--c-muted); margin-top: 8px; }
+.sk-bar { height: 8px; background: var(--c-sage); border-radius: 4px; overflow: hidden; margin-top: 14px; }
+.sk-fill { height: 100%; border-radius: 4px; transition: width 1.5s cubic-bezier(.22,1,.36,1); }
+
+.chart-card {
+  background: var(--c-card); backdrop-filter: blur(12px);
+  border: 1px solid var(--c-border); border-radius: var(--radius);
+  padding: 28px; margin-bottom: 22px;
+}
+.chart-title { font-size: 17px; font-weight: 800; margin-bottom: 24px; }
+.bar-row { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.bar-lbl { font-size: 13px; color: var(--c-muted); width: 90px; text-align: right; flex-shrink: 0; font-weight: 500; }
+.bar-track { flex: 1; background: var(--c-sage); border-radius: 8px; height: 36px; overflow: hidden; }
+.bar-fill {
+  height: 100%; border-radius: 8px; display: flex; align-items: center;
+  padding-left: 12px; font-size: 12px; color: #fff; font-weight: 700;
+  width: 0; transition: width 1.5s cubic-bezier(.22,1,.36,1);
+}
+
+.cmp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 22px; }
+.cmp-card {
+  background: var(--c-card); backdrop-filter: blur(12px);
+  border: 1px solid var(--c-border); border-radius: var(--radius); padding: 24px;
+}
+.cmp-ttl { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+.cmp-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid var(--c-sage); font-size: 13px;
+}
+.cmp-row:last-child { border: none; }
+.cmp-k { color: var(--c-muted); }
+.cmp-v { font-weight: 700; }
+.cmp-g { color: var(--c-accent); }
+.cmp-b { color: var(--c-danger); }
+
+/* ═══════ MODAL ═══════ */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(10,15,10,0.5);
+  backdrop-filter: blur(8px); z-index: 2000;
+  display: none; align-items: center; justify-content: center;
+}
+.modal-backdrop.open { display: flex; }
+.modal-box {
+  background: #fff; border-radius: 24px; padding: 36px;
+  width: 500px; max-width: 95vw; max-height: 90vh;
+  overflow-y: auto; position: relative;
+  animation: modalUp 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.2);
+}
+@keyframes modalUp { from { opacity:0; transform: translateY(24px) scale(0.96); } to { opacity:1; transform: none; } }
+.modal-ttl { font-family: var(--font-display); font-size: 22px; font-weight: 900; margin-bottom: 24px; }
+.modal-x {
+  position: absolute; top: 18px; right: 22px; background: var(--c-sage);
+  border: none; width: 32px; height: 32px; border-radius: 50%;
+  font-size: 16px; cursor: pointer; color: var(--c-muted);
+  display: flex; align-items: center; justify-content: center;
+  transition: var(--transition);
+}
+.modal-x:hover { background: #fee2e2; color: var(--c-danger); }
+
+.fg { margin-bottom: 18px; }
+.fl { font-size: 13px; font-weight: 600; color: var(--c-muted); margin-bottom: 7px; display: block; }
+.fi {
+  width: 100%; padding: 12px 16px; border: 1.5px solid var(--c-border);
+  border-radius: 12px; font-size: 14px; color: var(--c-text);
+  background: var(--c-sage); transition: var(--transition);
+  outline: none; font-family: var(--font-body);
+}
+.fi:focus { border-color: var(--c-accent); background: #fff; box-shadow: 0 0 0 3px rgba(34,197,94,0.1); }
+.fs {
+  width: 100%; padding: 12px 16px; border: 1.5px solid var(--c-border);
+  border-radius: 12px; font-size: 14px; color: var(--c-text);
+  background: var(--c-sage); outline: none; cursor: pointer;
+  font-family: var(--font-body);
+}
+.cb-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+.cb-item {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+  border-radius: 12px; border: 1.5px solid var(--c-border);
+  cursor: pointer; transition: var(--transition); font-size: 13px;
+}
+.cb-item input { accent-color: var(--c-accent); }
+.cb-item:has(input:checked) { background: var(--c-mint); border-color: var(--c-accent); }
+.sub-btn {
+  width: 100%; padding: 14px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--c-accent), #15803d);
+  color: #fff; border: none; font-family: var(--font-body);
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: var(--transition); margin-top: 8px;
+  box-shadow: 0 4px 16px rgba(22,163,74,0.25);
+}
+.sub-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(22,163,74,0.35); }
+.success-msg {
+  text-align: center; padding: 32px; display: none;
+  flex-direction: column; align-items: center; gap: 14px;
+}
+.suc-ico { font-size: 56px; }
+.success-msg h3 { font-family: var(--font-display); font-size: 20px; font-weight: 900; }
+.success-msg p { font-size: 14px; color: var(--c-muted); line-height: 1.6; }
+
+/* ═══════ FOOTER ═══════ */
+footer {
+  background: var(--c-forest); color: rgba(255,255,255,0.5);
+  text-align: center; padding: 28px; font-size: 13px;
+}
+footer span { color: var(--c-emerald); font-weight: 700; }
+
+/* ═══════ ANIMATIONS ═══════ */
+@keyframes fadeDown { from { opacity:0; transform: translateY(-16px); } to { opacity:1; transform: none; } }
+@keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2); opacity: 0; } }
+
+.fade-in { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+.fade-in.visible { opacity: 1; transform: none; }
+
+/* ═══════ RESPONSIVE ═══════ */
+@media (max-width: 900px) {
+  nav { padding: 0 16px; }
+  .nav-center { display: none; }
+  .nav-right .badge-count { display: none; }
+  .hero h1 { font-size: 32px; }
+  .hero { padding: 60px 20px 48px; min-height: auto; }
+  .kpi-strip { grid-template-columns: repeat(2,1fr); }
+  .home-body { padding: 48px 20px; }
+  .cards-grid { grid-template-columns: 1fr; }
+  .steps-row { grid-template-columns: repeat(2,1fr); gap: 20px; }
+  .steps-row::before { display: none; }
+  .map-layout { grid-template-columns: 1fr; grid-template-rows: 40% 60%; }
+  .map-sidebar { border-right: none; border-bottom: 1px solid var(--c-border); }
+  .map-legend { left: 12px; bottom: 12px; }
+  .guide-hero { grid-template-columns: 1fr; padding: 32px 28px; }
+  .waste-grid { grid-template-columns: 1fr 1fr; }
+  .tips-grid { grid-template-columns: 1fr; }
+  .stats-kpi { grid-template-columns: 1fr; }
+  .cmp-grid { grid-template-columns: 1fr; }
+  .cb-grid { grid-template-columns: repeat(2,1fr); }
+}
+
+@media (max-width: 500px) {
+  .kpi-strip { grid-template-columns: repeat(2,1fr); }
+  .waste-grid { grid-template-columns: 1fr; }
+  .steps-row { grid-template-columns: 1fr; }
+  .hero-actions { flex-direction: column; align-items: center; }
+  .btn-primary, .btn-secondary { width: 100%; justify-content: center; }
+}
+
+/* Mobile nav drawer */
+.mobile-nav-toggle {
+  display: none; background: none; border: none; cursor: pointer;
+  width: 36px; height: 36px; border-radius: 8px;
+  align-items: center; justify-content: center; font-size: 20px;
+}
+@media (max-width: 900px) {
+  .mobile-nav-toggle { display: flex; }
+}
+.mobile-drawer {
+  display: none; position: fixed; top: 64px; left: 0; right: 0; bottom: 0;
+  background: rgba(247,250,245,0.97); backdrop-filter: blur(20px);
+  z-index: 999; flex-direction: column; padding: 24px;
+}
+.mobile-drawer.open { display: flex; }
+.mobile-drawer .nl {
+  padding: 14px 0; font-size: 18px; text-align: left; border-radius: 0;
+  border-bottom: 1px solid var(--c-border);
+}
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav id="mainNav">
+  <div class="logo" onclick="showPage('home',null)">
+    <div class="logo-icon">🌿</div>
+    Eco<span>Map</span>
+  </div>
+  <div class="nav-center">
+    <button class="nl on" onclick="showPage('home',this)">Басты бет</button>
+    <button class="nl" onclick="showPage('mappage',this)">Карта</button>
+    <button class="nl" onclick="showPage('guide',this)">Нұсқаулық</button>
+    <button class="nl" onclick="showPage('stats',this)">Статистика</button>
+  </div>
+  <div class="nav-right">
+    <span class="badge-count">47 нүкте</span>
+    <button class="btn-add" onclick="openModal()">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+      Нүкте қосу
+    </button>
+    <button class="mobile-nav-toggle" onclick="toggleMobileNav()">☰</button>
+  </div>
+</nav>
+
+<div class="mobile-drawer" id="mobileDrawer">
+  <button class="nl on" onclick="showPage('home',this);closeMobileNav()">Басты бет</button>
+  <button class="nl" onclick="showPage('mappage',this);closeMobileNav()">Карта</button>
+  <button class="nl" onclick="showPage('guide',this);closeMobileNav()">Нұсқаулық</button>
+  <button class="nl" onclick="showPage('stats',this);closeMobileNav()">Статистика</button>
+</div>
+
+<!-- ════════ HOME ════════ -->
+<div id="home" class="page on">
+  <div class="hero">
+    <div class="hero-badge">
+      <div class="pulse-dot"></div>
+      Алматы, Қазақстан — 2026
+    </div>
+    <h1>Қоқысты дұрыс<br>сұрыптаңыз,<br><em>планетаны сақтаңыз</em></h1>
+    <p class="hero-sub">EcoMap — Алматыдағы барлық қоқыс жинау нүктелерінің интерактивті картасы. Ең жақын нүктені табыңыз, дұрыс сұрыптаңыз, табиғатқа үлес қосыңыз.</p>
+    <div class="hero-actions">
+      <button class="btn-primary" onclick="showPage('mappage',null)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        Картаны ашу
+      </button>
+      <button class="btn-secondary" onclick="showPage('guide',null)">Нұсқаулықты оқу →</button>
+    </div>
+  </div>
+
+  <div class="kpi-strip">
+    <div class="kpi-item"><div class="kpi-val">47</div><div class="kpi-label">Қоқыс нүктесі</div></div>
+    <div class="kpi-item"><div class="kpi-val">6+</div><div class="kpi-label">Қоқыс түрі</div></div>
+    <div class="kpi-item"><div class="kpi-val">12</div><div class="kpi-label">Аудан</div></div>
+    <div class="kpi-item"><div class="kpi-val">2 100+</div><div class="kpi-label">Белсенді қолданушы</div></div>
+  </div>
+
+  <div class="home-body">
+    <div class="fade-in">
+      <div class="section-eyebrow">Неге бұл маңызды</div>
+      <div class="section-title">Алматыда экология мәселесі өткір</div>
+      <div class="section-sub">Статистика, жағдай және шешім</div>
+      <div class="cards-grid">
+        <div class="info-card">
+          <div class="card-icon" style="background:#fee2e2;">🗑️</div>
+          <h3>1.2 млн тонна қоқыс</h3>
+          <p>Алматы жыл сайын 1.2 миллион тонна қоқыс шығарады — тек <strong>7%</strong> ғана сұрыпталады.</p>
+        </div>
+        <div class="info-card">
+          <div class="card-icon" style="background:#fef3c7;">❓</div>
+          <h3>Ақпараттың жетіспеуі</h3>
+          <p>Халықтың <strong>80%</strong> қайда және қалай сұрыптау керектігін білмейді.</p>
+        </div>
+        <div class="info-card">
+          <div class="card-icon" style="background:var(--c-mint);">🌱</div>
+          <h3>EcoMap — шешімі</h3>
+          <p>Интерактивті карта, нұсқаулық және статистика арқылы экологиялық сауаттылықты арттырамыз.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="steps-container fade-in">
+      <div class="section-eyebrow">Қалай жұмыс істейді</div>
+      <div class="section-title" style="margin-bottom:32px;">4 қадам — 2 минут</div>
+      <div class="steps-row">
+        <div class="step-item">
+          <div class="step-circle">1</div>
+          <div class="step-title">Сайтты ашыңыз</div>
+          <div class="step-desc">EcoMap картасын браузерде ашыңыз</div>
+        </div>
+        <div class="step-item">
+          <div class="step-circle">2</div>
+          <div class="step-title">Нүкте табыңыз</div>
+          <div class="step-desc">Геолокация немесе іздеу арқылы</div>
+        </div>
+        <div class="step-item">
+          <div class="step-circle">3</div>
+          <div class="step-title">Дұрыс сұрыптаңыз</div>
+          <div class="step-desc">Нұсқаулықта барлық ережелер бар</div>
+        </div>
+        <div class="step-item">
+          <div class="step-circle">4</div>
+          <div class="step-title">Тастаңыз</div>
+          <div class="step-desc">Жақын нүктеге апарып тастаңыз</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer>© 2026 <span>EcoMap</span> — Алматы экологиясы үшін · IT мамандығы студенттері жасаған</footer>
+</div>
+
+<!-- ════════ MAP ════════ -->
+<div id="mappage" class="page">
+  <div class="map-layout">
+    <div class="map-sidebar">
+      <div class="sb-header">
+        <div class="sb-search-wrap">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="#999" stroke-width="1.5"/><path d="M10.5 10.5L14 14" stroke="#999" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <input type="text" id="searchInput" placeholder="Нүкте немесе мекенжай іздеу..." oninput="filterPoints()">
+        </div>
+        <div class="filter-chips">
+          <button class="chip on" onclick="setFilter(this,'all')">Барлығы</button>
+          <button class="chip" onclick="setFilter(this,'paper')">📄 Қағаз</button>
+          <button class="chip" onclick="setFilter(this,'plastic')">🧴 Пластик</button>
+          <button class="chip" onclick="setFilter(this,'glass')">🍾 Шыны</button>
+          <button class="chip" onclick="setFilter(this,'metal')">🔩 Металл</button>
+          <button class="chip" onclick="setFilter(this,'organic')">🌿 Органик</button>
+          <button class="chip" onclick="setFilter(this,'battery')">🔋 Батарея</button>
+        </div>
+      </div>
+      <div class="sb-count" id="sbCount">47 нүкте табылды</div>
+      <div class="pt-list" id="ptList"></div>
+      <div class="pt-empty" id="ptEmpty">🔍 Нүкте табылмады. Іздеуді өзгертіп көріңіз.</div>
+    </div>
+    <div style="position:relative;flex:1;">
+      <div id="map"></div>
+      <div class="map-ctrls">
+        <button class="mc-btn" id="geoBtn" onclick="geoLocate()" title="Менің орным">📍</button>
+        <button class="mc-btn" onclick="mapObj.setView([43.238,76.889],13)" title="Орталыққа">🏠</button>
+      </div>
+      <div class="map-legend">
+        <div class="leg-row"><div class="leg-dot" style="background:#16a34a;"></div> Органик / Аралас</div>
+        <div class="leg-row"><div class="leg-dot" style="background:#2563eb;"></div> Қағаз / Шыны</div>
+        <div class="leg-row"><div class="leg-dot" style="background:#d97706;"></div> Пластик / Батарея</div>
+        <div class="leg-row"><div class="leg-dot" style="background:#dc2626;"></div> Металл</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ GUIDE ════════ -->
+<div id="guide" class="page">
+  <div class="guide-page">
+    <div class="guide-hero">
+      <div>
+        <div class="gh-title">Дұрыс сұрыптау —<br>болашаққа инвестиция</div>
+        <div class="gh-sub">Қоқысты дұрыс бөлу арқылы сіз табиғатты сақтауға нақты үлес қосасыз. Бұл нұсқаулық сізге дұрыс сұрыптауды үйретеді.</div>
+      </div>
+      <div class="gh-steps">
+        <div class="gh-step"><div class="gh-num">1</div><div class="gh-text">Қоқысты жуып, кептіріңіз</div></div>
+        <div class="gh-step"><div class="gh-num">2</div><div class="gh-text">Түріне қарай бөліңіз</div></div>
+        <div class="gh-step"><div class="gh-num">3</div><div class="gh-text">EcoMap-тен жақын нүкте табыңыз</div></div>
+        <div class="gh-step"><div class="gh-num">4</div><div class="gh-text">Тиісті контейнерге тастаңыз</div></div>
+      </div>
+    </div>
+
+    <div class="section-eyebrow">Қоқыс түрлері</div>
+    <div class="section-title" style="margin-bottom:28px;">Не қайда тасталады?</div>
+
+    <div class="waste-grid">
+      <div class="wc">
+        <div class="wc-icon">📄</div>
+        <div class="wc-name" style="color:#2563eb;">Қағаз және картон</div>
+        <div class="wc-yes">✓ Газет, журналдар<br>✓ Картон қораптар<br>✓ Дәптер, кітаптар<br>✓ Кеңсе қағаздары</div>
+        <div class="wc-no">✗ Майланған қағаз<br>✗ Ламинацияланған қағаз</div>
+      </div>
+      <div class="wc">
+        <div class="wc-icon">🧴</div>
+        <div class="wc-name" style="color:#d97706;">Пластик</div>
+        <div class="wc-yes">✓ Бөтелкелер (PET)<br>✓ Ыдыс-аяқ<br>✓ Контейнерлер<br>✓ Пакеттер (PE)</div>
+        <div class="wc-no">✗ Майланған пластик<br>✗ Биопластик</div>
+      </div>
+      <div class="wc">
+        <div class="wc-icon">🍾</div>
+        <div class="wc-name" style="color:#7c3aed;">Шыны</div>
+        <div class="wc-yes">✓ Шыны бөтелкелер<br>✓ Банкалар<br>✓ Шарап шынысы<br>✓ Косметика бөтелкелері</div>
+        <div class="wc-no">✗ Шам шынысы<br>✗ Автомобиль шынысы</div>
+      </div>
+      <div class="wc">
+        <div class="wc-icon">🔩</div>
+        <div class="wc-name" style="color:#dc2626;">Металл</div>
+        <div class="wc-yes">✓ Консервы банкалары<br>✓ Алюминий банкалар<br>✓ Темір заттар<br>✓ Болат бөлшектер</div>
+        <div class="wc-no">✗ Радиоактивті металл<br>✗ Ластанған металл</div>
+      </div>
+      <div class="wc">
+        <div class="wc-icon">🌿</div>
+        <div class="wc-name" style="color:#16a34a;">Органик қалдықтар</div>
+        <div class="wc-yes">✓ Тамақ қалдықтары<br>✓ Жеміс, жидек<br>✓ Шай, кофе қоқысы<br>✓ Жапырақ, шөп</div>
+        <div class="wc-no">✗ Ет, балық сүйектері<br>✗ Майлы тамақ</div>
+      </div>
+      <div class="wc">
+        <div class="wc-icon">🔋</div>
+        <div class="wc-name" style="color:#be185d;">Батарея / Электроника</div>
+        <div class="wc-yes">✓ AA, AAA батареялар<br>✓ Телефон аккумуляторы<br>✓ Ноутбук батареясы<br>✓ Электроника бөлшектері</div>
+        <div class="wc-no">✗ Жалпы қоқысқа ТАСТАМАҢЫЗ<br>✗ Отқа ЖАҚПАҢЫЗ</div>
+      </div>
+    </div>
+
+    <div class="section-eyebrow" style="margin-top:48px;">Пайдалы кеңестер</div>
+    <div class="section-title" style="margin-bottom:24px;">Есте сақтаңыз</div>
+    <div class="tips-grid">
+      <div class="tip"><div class="tip-ttl">🧼 Жуу міндетті</div><div class="tip-txt">Тастамас бұрын барлық ыдысты жуыңыз. Майлы немесе ластанған заттарды қайта өңдеуге болмайды.</div></div>
+      <div class="tip"><div class="tip-ttl">✂️ Бөлшектеу керек</div><div class="tip-txt">Пластик бөтелкені, қақпағын, затбелгісін бөлек тастаңыз — олар әртүрлі материалдан.</div></div>
+      <div class="tip"><div class="tip-ttl">⚠️ Өлшем маңызды емес</div><div class="tip-txt">Кішкентай батарея да улы. Кез-келген өлшемдегі батареяны арнайы контейнерге тастаңыз.</div></div>
+      <div class="tip"><div class="tip-ttl">♻️ Белгісізді жалпыға</div><div class="tip-txt">Қай контейнерге тастауды білмесеңіз — жалпы қоқысқа тастаңыз. Аралас ластаушы болмасын.</div></div>
+    </div>
+  </div>
+  <footer>© 2026 <span>EcoMap</span> — Алматы экологиясы үшін · IT мамандығы студенттері жасаған</footer>
+</div>
+
+<!-- ════════ STATS ════════ -->
+<div id="stats" class="page">
+  <div class="stats-page">
+    <div class="section-eyebrow">Деректер мен прогресс</div>
+    <div class="section-title" style="margin-bottom:28px;">Алматы экологиясы</div>
+
+    <div class="stats-kpi">
+      <div class="sk">
+        <div class="sk-lbl">Жылдық қоқыс мөлшері</div>
+        <div class="sk-val" style="color:#dc2626;">1.2 млн т</div>
+        <div class="sk-note">Алматы қаласы, 2024</div>
+        <div class="sk-bar"><div class="sk-fill" data-w="85" style="background: linear-gradient(90deg,#ef4444,#dc2626);width:0%"></div></div>
+        <div style="font-size:12px;color:var(--c-muted);margin-top:8px;">Мақсатты деңгейден 85% жоғары</div>
+      </div>
+      <div class="sk">
+        <div class="sk-lbl">Сұрыпталатын үлес</div>
+        <div class="sk-val" style="color:#d97706;">7%</div>
+        <div class="sk-note">Мақсат: 30% (2030)</div>
+        <div class="sk-bar"><div class="sk-fill" data-w="23" style="background: linear-gradient(90deg,#f59e0b,#d97706);width:0%"></div></div>
+        <div style="font-size:12px;color:var(--c-muted);margin-top:8px;">EcoMap 30%-ға жетуге көмектеседі</div>
+      </div>
+      <div class="sk">
+        <div class="sk-lbl">EcoMap нүктелері</div>
+        <div class="sk-val" style="color:var(--c-accent);">47</div>
+        <div class="sk-note">Мақсат: 200 (2027)</div>
+        <div class="sk-bar"><div class="sk-fill" data-w="24" style="background: linear-gradient(90deg,var(--c-emerald),var(--c-lime));width:0%"></div></div>
+        <div style="font-size:12px;color:var(--c-muted);margin-top:8px;">47 / 200 — дамып келеді</div>
+      </div>
+    </div>
+
+    <div class="chart-card"><div class="chart-title">Алматы қоқысының құрамы (%)</div><div id="chart1"></div></div>
+
+    <div class="cmp-grid">
+      <div class="cmp-card">
+        <div class="cmp-ttl">🇰🇿 Алматы</div>
+        <div class="cmp-row"><span class="cmp-k">Жылдық қоқыс</span><span class="cmp-v cmp-b">1.2 млн т</span></div>
+        <div class="cmp-row"><span class="cmp-k">Сұрыптау үлесі</span><span class="cmp-v cmp-b">7%</span></div>
+        <div class="cmp-row"><span class="cmp-k">Нүктелер саны</span><span class="cmp-v">47</span></div>
+        <div class="cmp-row"><span class="cmp-k">Қайта өңдеу</span><span class="cmp-v cmp-b">5%</span></div>
+      </div>
+      <div class="cmp-card">
+        <div class="cmp-ttl">🇩🇪 Германия (үлгі ретінде)</div>
+        <div class="cmp-row"><span class="cmp-k">Жылдық қоқыс</span><span class="cmp-v">614 кг/адам</span></div>
+        <div class="cmp-row"><span class="cmp-k">Сұрыптау үлесі</span><span class="cmp-v cmp-g">68%</span></div>
+        <div class="cmp-row"><span class="cmp-k">Нүктелер саны</span><span class="cmp-v cmp-g">50 000+</span></div>
+        <div class="cmp-row"><span class="cmp-k">Қайта өңдеу</span><span class="cmp-v cmp-g">67%</span></div>
+      </div>
+    </div>
+
+    <div class="chart-card"><div class="chart-title">Нүктелердің аудандар бойынша таралуы</div><div id="chart2"></div></div>
+  </div>
+  <footer>© 2026 <span>EcoMap</span> — Алматы экологиясы үшін · IT мамандығы студенттері жасаған</footer>
+</div>
+
+<!-- ════════ MODAL ════════ -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="closeOutside(event)">
+  <div class="modal-box">
+    <button class="modal-x" onclick="closeModal()">✕</button>
+    <div id="modalForm">
+      <div class="modal-ttl">Жаңа нүкте қосу</div>
+      <div class="fg"><label class="fl">Нүктенің атауы *</label><input class="fi" id="f-name" placeholder="мысалы: Саябақ маңындағы контейнер"></div>
+      <div class="fg"><label class="fl">Мекенжай *</label><input class="fi" id="f-addr" placeholder="Абай к., 44"></div>
+      <div class="fg"><label class="fl">Аудан</label>
+        <select class="fs"><option value="">Аудан таңдаңыз</option><option>Алмалы</option><option>Бостандық</option><option>Медеу</option><option>Әуезов</option><option>Жетісу</option><option>Наурызбай</option><option>Түрксіб</option><option>Алатау</option></select>
+      </div>
+      <div class="fg"><label class="fl">Жұмыс уақыты</label><input class="fi" id="f-hours" placeholder="09:00–18:00"></div>
+      <div class="fg"><label class="fl">Қоқыс түрлері (кемінде 1) *</label>
+        <div class="cb-grid">
+          <label class="cb-item"><input type="checkbox"> 📄 Қағаз</label>
+          <label class="cb-item"><input type="checkbox"> 🧴 Пластик</label>
+          <label class="cb-item"><input type="checkbox"> 🍾 Шыны</label>
+          <label class="cb-item"><input type="checkbox"> 🔩 Металл</label>
+          <label class="cb-item"><input type="checkbox"> 🌿 Органик</label>
+          <label class="cb-item"><input type="checkbox"> 🔋 Батарея</label>
+        </div>
+      </div>
+      <div class="fg"><label class="fl">Қосымша ескертпе</label><textarea class="fi" rows="2" placeholder="Контейнер орналасуы, байланыс..."></textarea></div>
+      <button class="sub-btn" onclick="submitPt()">Нүктені жіберу ✓</button>
+    </div>
+    <div class="success-msg" id="modalSuccess">
+      <div class="suc-ico">🌿</div>
+      <h3>Рахмет! Нүкте жіберілді</h3>
+      <p>Модерациядан өткеннен кейін картаға қосылады. Экологияға үлес қосқаныңыз үшін алғыс!</p>
+      <button class="sub-btn" style="margin-top:8px;" onclick="closeModal()">Жабу</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════ DATA ═══════
+const POINTS=[
+  {id:0,name:'Алматы Арена маңы',addr:'Достық д., 97',dist:'Бостандық',hours:'09:00–20:00',lat:43.2495,lng:76.9380,types:['paper','plastic','glass']},
+  {id:1,name:'Абай алаңы',addr:'Абай к., 44',dist:'Алмалы',hours:'08:00–18:00',lat:43.2380,lng:76.9100,types:['plastic','metal','battery']},
+  {id:2,name:'Зеленый базар',addr:'Жібек жолы к., 14',dist:'Алмалы',hours:'07:00–19:00',lat:43.2560,lng:76.9430,types:['organic','paper']},
+  {id:3,name:'Мега Алматы',addr:'Розыбакиев к., 247',dist:'Бостандық',hours:'10:00–22:00',lat:43.2210,lng:76.8750,types:['paper','plastic','glass','battery']},
+  {id:4,name:'Горький саябағы',addr:'Горький к., 1',dist:'Алмалы',hours:'09:00–18:00',lat:43.2660,lng:76.9200,types:['plastic','organic']},
+  {id:5,name:'Медеу ауданы',addr:'Достық д., 180',dist:'Медеу',hours:'09:00–17:00',lat:43.2080,lng:76.9600,types:['glass','metal']},
+  {id:6,name:'Сайран тоғаны',addr:'Тимирязев к., 42',dist:'Бостандық',hours:'08:00–20:00',lat:43.2320,lng:76.8800,types:['paper','plastic','metal','organic']},
+  {id:7,name:'Байтерек ауданы',addr:'Жандосов к., 58',dist:'Наурызбай',hours:'09:00–18:00',lat:43.2950,lng:76.8950,types:['paper','glass']},
+  {id:8,name:'Көктем-3 тұрғын үй',addr:'Розыбакиев к., 181',dist:'Бостандық',hours:'08:00–20:00',lat:43.2280,lng:76.8820,types:['plastic','battery']},
+  {id:9,name:'EXPO орталығы',addr:'Алтынсарин д., 30',dist:'Әуезов',hours:'10:00–20:00',lat:43.2590,lng:76.8530,types:['paper','plastic','glass','metal','battery']},
+  {id:10,name:'ЦУМ маңы',addr:'Сейфуллин к., 569',dist:'Алмалы',hours:'09:00–21:00',lat:43.2620,lng:76.9350,types:['paper','plastic']},
+  {id:11,name:'Ботаника бағы',addr:'Тихонов к., 44',dist:'Медеу',hours:'08:00–19:00',lat:43.2140,lng:76.9520,types:['organic','paper','glass']},
+];
+
+const TAGS={paper:{l:'Қағаз',c:'t-paper'},plastic:{l:'Пластик',c:'t-plastic'},glass:{l:'Шыны',c:'t-glass'},metal:{l:'Металл',c:'t-metal'},organic:{l:'Органик',c:'t-organic'},battery:{l:'Батарея',c:'t-battery'},electro:{l:'Электро',c:'t-electro'}};
+const PCLR={organic:'#16a34a',paper:'#2563eb',glass:'#7c3aed',plastic:'#d97706',metal:'#dc2626',battery:'#be185d'};
+
+function pinClr(ts){
+  if(ts.includes('organic'))return PCLR.organic;
+  if(ts.includes('paper')||ts.includes('glass'))return PCLR.paper;
+  if(ts.includes('metal'))return PCLR.metal;
+  return PCLR.plastic;
+}
+
+// ═══════ MAP ═══════
+let mapObj,markers=[],activeFilter='all',activeSearch='';
+
+function createMarkerSVG(color){
+  return `<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+    <defs><filter id="s${color.replace('#','')}" x="-20%" y="-10%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.25)"/></filter></defs>
+    <path d="M16 0C7.16 0 0 7.16 0 16c0 12 16 24 16 24s16-12 16-24C32 7.16 24.84 0 16 0z" fill="${color}" filter="url(#s${color.replace('#','')})"/>
+    <circle cx="16" cy="15" r="6" fill="rgba(255,255,255,0.9)"/>
+    <circle cx="16" cy="15" r="3" fill="${color}"/>
+  </svg>`;
+}
+
+function initMap(){
+  if(mapObj)return;
+  mapObj=L.map('map',{zoomControl:false}).setView([43.238,76.889],13);
+  L.control.zoom({position:'bottomright'}).addTo(mapObj);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+    attribution:'© <a href="https://www.openstreetmap.org/">OSM</a> © <a href="https://carto.com/">CARTO</a>',
+    maxZoom:19, subdomains:'abcd'
+  }).addTo(mapObj);
+
+  POINTS.forEach(pt=>{
+    const clr=pinClr(pt.types);
+    const svgIcon=createMarkerSVG(clr);
+    const icon=L.divIcon({
+      className:'',
+      html:svgIcon,
+      iconSize:[32,40],iconAnchor:[16,40],popupAnchor:[0,-42]
+    });
+    const tHtml=pt.types.map(t=>`<span class="tag ${TAGS[t]?.c||''}">${TAGS[t]?.l||t}</span>`).join('');
+    const m=L.marker([pt.lat,pt.lng],{icon}).addTo(mapObj);
+    m.bindPopup(`<div class="popup-inner"><div class="popup-name">${pt.name}</div><div class="popup-addr">${pt.addr} · ${pt.dist}</div><div class="popup-hrs">🕐 ${pt.hours}</div><div class="popup-tags">${tHtml}</div><button class="popup-btn" onclick="selPt(${pt.id})">Тізімде көру</button></div>`,{maxWidth:280});
+    m.on('click',()=>selPt(pt.id));
+    markers.push({pt,marker:m});
+  });
+  renderList();
+}
+
+function renderList(){
+  const q=activeSearch.toLowerCase().trim();
+  const list=document.getElementById('ptList');
+  const empty=document.getElementById('ptEmpty');
+  const cnt=document.getElementById('sbCount');
+  list.innerHTML='';let vis=0;
+  POINTS.forEach(pt=>{
+    const mF=activeFilter==='all'||pt.types.includes(activeFilter);
+    const mS=!q||pt.name.toLowerCase().includes(q)||pt.addr.toLowerCase().includes(q)||pt.dist.toLowerCase().includes(q);
+    const show=mF&&mS;
+    const m=markers.find(x=>x.pt.id===pt.id);
+    if(m){show?m.marker.addTo(mapObj):m.marker.remove();}
+    if(!show)return;
+    vis++;
+    const tHtml=pt.types.map(t=>`<span class="tag ${TAGS[t]?.c||''}">${TAGS[t]?.l||t}</span>`).join('');
+    const div=document.createElement('div');
+    div.className='pt-item';div.id=`pt-${pt.id}`;
+    div.innerHTML=`<div class="pt-name">${pt.name}</div><div class="pt-meta">${pt.addr} · ${pt.dist} ауданы</div><div class="pt-hrs">🕐 ${pt.hours}</div><div class="pt-tags">${tHtml}</div>`;
+    div.onclick=()=>selPt(pt.id);
+    list.appendChild(div);
+  });
+  cnt.textContent=`${vis} нүкте табылды`;
+  empty.classList.toggle('show',vis===0);
+}
+
+function selPt(id){
+  document.querySelectorAll('.pt-item').forEach(el=>el.classList.remove('active'));
+  const el=document.getElementById(`pt-${id}`);
+  if(el){el.classList.add('active');el.scrollIntoView({block:'nearest',behavior:'smooth'});}
+  const m=markers.find(x=>x.pt.id===id);
+  if(m){mapObj.setView(m.marker.getLatLng(),16,{animate:true,duration:0.5});m.marker.openPopup();}
+}
+
+function setFilter(btn,type){
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  btn.classList.add('on');activeFilter=type;renderList();
+}
+
+function filterPoints(){activeSearch=document.getElementById('searchInput').value;renderList();}
+
+function geoLocate(){
+  const btn=document.getElementById('geoBtn');
+  btn.classList.add('locating');
+  if(!navigator.geolocation){alert('Браузер геолокацияны қолдамайды');btn.classList.remove('locating');return;}
+  navigator.geolocation.getCurrentPosition(pos=>{
+    btn.classList.remove('locating');
+    const{latitude:lat,longitude:lng}=pos.coords;
+    mapObj.setView([lat,lng],15);
+    L.marker([lat,lng],{icon:L.divIcon({className:'',html:`<div style="width:18px;height:18px;border-radius:50%;background:var(--c-accent);border:3px solid #fff;box-shadow:0 0 0 6px rgba(22,163,74,0.2),0 2px 8px rgba(0,0,0,0.2);"></div>`,iconSize:[18,18],iconAnchor:[9,9]})}).addTo(mapObj).bindPopup('<div class="popup-inner" style="padding:12px;"><b>📍 Сіздің орныңыз</b></div>').openPopup();
+  },()=>{btn.classList.remove('locating');alert('Геолокацияны аша алмадық');});
+}
+
+// ═══════ CHARTS ═══════
+let chartsBuilt=false;
+function buildCharts(){
+  if(chartsBuilt)return;chartsBuilt=true;
+  const c1=[
+    {l:'Органик',p:46,c:'linear-gradient(90deg,#16a34a,#22c55e)'},
+    {l:'Қағаз',p:22,c:'linear-gradient(90deg,#2563eb,#3b82f6)'},
+    {l:'Пластик',p:16,c:'linear-gradient(90deg,#d97706,#f59e0b)'},
+    {l:'Шыны',p:8,c:'linear-gradient(90deg,#7c3aed,#8b5cf6)'},
+    {l:'Металл',p:5,c:'linear-gradient(90deg,#dc2626,#ef4444)'},
+    {l:'Басқа',p:3,c:'linear-gradient(90deg,#6b7280,#9ca3af)'}
+  ];
+  const el1=document.getElementById('chart1');
+  c1.forEach(b=>{el1.innerHTML+=`<div class="bar-row"><div class="bar-lbl">${b.l}</div><div class="bar-track"><div class="bar-fill" data-w="${b.p}" style="background:${b.c};">${b.p}%</div></div></div>`;});
+
+  const c2=[
+    {l:'Алмалы',p:9},{l:'Бостандық',p:8},{l:'Медеу',p:7},{l:'Әуезов',p:6},
+    {l:'Жетісу',p:5},{l:'Түрксіб',p:5},{l:'Наурызбай',p:4},{l:'Алатау',p:3}
+  ];
+  const el2=document.getElementById('chart2');
+  c2.forEach(b=>{el2.innerHTML+=`<div class="bar-row"><div class="bar-lbl">${b.l}</div><div class="bar-track"><div class="bar-fill" data-w="${b.p*9}" style="background:linear-gradient(90deg,var(--c-accent),var(--c-emerald));">${b.p}</div></div></div>`;});
+
+  setTimeout(()=>{document.querySelectorAll('.bar-fill,.sk-fill').forEach(el=>{el.style.width=el.dataset.w+'%';});},150);
+}
+
+// ═══════ NAVIGATION ═══════
+function showPage(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  document.querySelectorAll('.nav-center .nl').forEach(l=>l.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+  else{
+    const map={home:0,mappage:1,guide:2,stats:3};
+    const btns=document.querySelectorAll('.nav-center .nl');
+    if(btns[map[id]])btns[map[id]].classList.add('on');
+  }
+  window.scrollTo(0,0);
+  if(id==='mappage')setTimeout(initMap,80);
+  if(id==='stats')setTimeout(buildCharts,80);
+}
+
+// Mobile nav
+function toggleMobileNav(){document.getElementById('mobileDrawer').classList.toggle('open');}
+function closeMobileNav(){document.getElementById('mobileDrawer').classList.remove('open');}
+
+// ═══════ MODAL ═══════
+function openModal(){
+  document.getElementById('modalBackdrop').classList.add('open');
+  document.getElementById('modalForm').style.display='';
+  document.getElementById('modalSuccess').style.display='none';
+}
+function closeModal(){document.getElementById('modalBackdrop').classList.remove('open');}
+function closeOutside(e){if(e.target===document.getElementById('modalBackdrop'))closeModal();}
+function submitPt(){
+  const n=document.getElementById('f-name').value.trim();
+  const a=document.getElementById('f-addr').value.trim();
+  const checked=[...document.querySelectorAll('.cb-grid input:checked')];
+  if(!n||!a){alert('Атауы мен мекенжайды толтырыңыз');return;}
+  if(!checked.length){alert('Кемінде бір қоқыс түрін таңдаңыз');return;}
+  document.getElementById('modalForm').style.display='none';
+  document.getElementById('modalSuccess').style.display='flex';
+}
+
+// ═══════ SCROLL EFFECTS ═══════
+window.addEventListener('scroll',()=>{
+  document.getElementById('mainNav').classList.toggle('scrolled',window.scrollY>10);
+});
+
+// Fade-in on scroll
+const observer=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');observer.unobserve(e.target);}});
+},{threshold:0.15});
+document.querySelectorAll('.fade-in').forEach(el=>observer.observe(el));
+</script>
+</body>
+</html>
